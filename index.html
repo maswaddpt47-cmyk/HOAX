@@ -576,6 +576,39 @@
     });
   });
 
+  // ---------- Détection de domaines proches mais différents (partagée E-mail/SMS) ----------
+  function levenshtein(a, b){
+    const dp = Array.from({length: a.length+1}, (_, i) => [i, ...Array(b.length).fill(0)]);
+    for(let j=0;j<=b.length;j++) dp[0][j] = j;
+    for(let i=1;i<=a.length;i++){
+      for(let j=1;j<=b.length;j++){
+        dp[i][j] = a[i-1]===b[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j-1], dp[i-1][j], dp[i][j-1]);
+      }
+    }
+    return dp[a.length][b.length];
+  }
+
+  function findMismatchedDomains(text){
+    const matches = text.match(/\b(?:[a-z0-9-]+\.)+[a-z]{2,}\b/gi) || [];
+    const seen = new Set();
+    const domains = [];
+    matches.forEach(m=>{
+      const norm = m.toLowerCase().replace(/^www\./,'');
+      if(!seen.has(norm)){ seen.add(norm); domains.push(norm); }
+    });
+    for(let i=0;i<domains.length;i++){
+      for(let j=i+1;j<domains.length;j++){
+        const rootA = domains[i].split('.')[0];
+        const rootB = domains[j].split('.')[0];
+        if(rootA===rootB) continue;
+        const related = rootA.includes(rootB) || rootB.includes(rootA) ||
+          (Math.min(rootA.length, rootB.length)>=4 && levenshtein(rootA, rootB)<=2);
+        if(related) return [domains[i], domains[j]];
+      }
+    }
+    return null;
+  }
+
   // ---------- EMAIL MODULE ----------
   const URGENCY_WORDS = ['urgent','immédiatement','sous 24h','sous 48h','dernier délai','compte bloqué','compte suspendu','action requise','dernier rappel','suspension imminente'];
   const SENSITIVE_ASK = ['mot de passe','code carte','cvv','rib','numéro de carte','coordonnées bancaires','code confidentiel','identifiant et mot de passe','code de vérification'];
@@ -625,6 +658,11 @@
     if(docMatches.length >= 2){
       signals.push({type:'bad', text:"Demande groupée de plusieurs documents administratifs (" + docMatches.join(', ') + ") — inhabituel de les réclamer aussi tôt, avant la signature d'un contrat en bonne et due forme."});
       score += 4;
+    }
+    const mismatchedDomains = findMismatchedDomains(text);
+    if(mismatchedDomains){
+      signals.push({type:'warn', text:"Deux domaines différents mais très proches sont mentionnés (« " + mismatchedDomains[0] + " » et « " + mismatchedDomains[1] + " ») — vérifie lequel est le vrai site/la vraie adresse de l'organisme avant de faire confiance à l'un des deux (WHOIS, SIRET)."});
+      score += 3;
     }
 
     if(sender && sender.trim()){
@@ -765,6 +803,11 @@
     }
     if(REPLY_TRAP_RE.test(text)){
       signals.push({type:'bad', text:"Le message demande de répondre « OUI »/« 1 » par SMS — piège fréquent pour confirmer un abonnement surtaxé ou valider l'existence du numéro."});
+      score += 3;
+    }
+    const mismatchedDomains = findMismatchedDomains(text);
+    if(mismatchedDomains){
+      signals.push({type:'warn', text:"Deux domaines différents mais très proches sont mentionnés (« " + mismatchedDomains[0] + " » et « " + mismatchedDomains[1] + " ») — vérifie lequel est le vrai site/la vraie adresse de l'organisme avant de faire confiance à l'un des deux (WHOIS, SIRET)."});
       score += 3;
     }
 
