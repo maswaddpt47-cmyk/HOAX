@@ -591,8 +591,16 @@
     const signals = [];
     let score = 0;
 
-    URGENCY_WORDS.forEach(w=>{ if(lower.includes(w)){ signals.push({type:'warn', text:"Formulation d'urgence détectée : « "+w+" » — technique classique pour pousser à agir vite sans réfléchir."}); score+=2; } });
-    SENSITIVE_ASK.forEach(w=>{ if(lower.includes(w)){ signals.push({type:'bad', text:"Demande d'information sensible : « "+w+" » — un organisme légitime ne le demande jamais par mail."}); score+=4; } });
+    const urgencyMatches = URGENCY_WORDS.filter(w=>lower.includes(w));
+    if(urgencyMatches.length>0){
+      signals.push({type:'warn', text:"Formulation(s) d'urgence détectée(s) (" + urgencyMatches.join(', ') + ") — technique classique pour pousser à agir vite sans réfléchir."});
+      score += 2;
+    }
+    const sensitiveMatches = SENSITIVE_ASK.filter(w=>lower.includes(w));
+    if(sensitiveMatches.length>0){
+      signals.push({type:'bad', text:"Demande d'information sensible (" + sensitiveMatches.join(', ') + ") — un organisme légitime ne le demande jamais par mail."});
+      score += 4;
+    }
     GENERIC_GREETING.forEach(w=>{ if(lower.includes(w)){ signals.push({type:'warn', text:"Formule de politesse générique (« "+w+" ») plutôt qu'un vrai nom — signe d'un envoi de masse."}); score+=1; } });
 
     if(lower.includes('cliquez ici') || lower.includes('cliquer ici')){
@@ -712,7 +720,7 @@
   // ---------- SMS MODULE ----------
   const SMS_BRANDS = ['colissimo','chronopost','la poste','laposte','dhl','ups','fedex','ameli','caf','impots','edf','free mobile','orange','sfr','bouygues','cpf','pole emploi','france travail','paypal'];
   const PREMIUM_NUMBER_RE = /0[89]\d{8}/;
-  const REPLY_TRAP_RE = /r[ée]pond(ez|s|re)\s+(oui|1|stop\s+non)/i;
+  const REPLY_TRAP_RE = /r[ée]pond(ez|s|re|ant)\s+(oui|1|stop\s+non)/i;
   const MOBILE_NUMBER_RE = /^(\+33|0)[67]\d{8}$/;
 
   function extractLink(text){
@@ -726,8 +734,16 @@
     const signals = [];
     let score = 0;
 
-    URGENCY_WORDS.forEach(w=>{ if(lower.includes(w)){ signals.push({type:'warn', text:"Formulation d'urgence détectée : « "+w+" » — technique classique pour pousser à agir vite sans réfléchir."}); score+=2; } });
-    SENSITIVE_ASK.forEach(w=>{ if(lower.includes(w)){ signals.push({type:'bad', text:"Demande d'information sensible : « "+w+" » — un organisme légitime ne le demande jamais par SMS."}); score+=4; } });
+    const urgencyMatches = URGENCY_WORDS.filter(w=>lower.includes(w));
+    if(urgencyMatches.length>0){
+      signals.push({type:'warn', text:"Formulation(s) d'urgence détectée(s) (" + urgencyMatches.join(', ') + ") — technique classique pour pousser à agir vite sans réfléchir."});
+      score += 2;
+    }
+    const sensitiveMatches = SENSITIVE_ASK.filter(w=>lower.includes(w));
+    if(sensitiveMatches.length>0){
+      signals.push({type:'bad', text:"Demande d'information sensible (" + sensitiveMatches.join(', ') + ") — un organisme légitime ne le demande jamais par SMS."});
+      score += 4;
+    }
 
     const link = extractLink(text);
     if(link){
