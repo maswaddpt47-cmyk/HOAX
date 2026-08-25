@@ -10,9 +10,17 @@ Outil pédagogique d'éducation aux médias et à l'information (EMI), en une se
 
 Chaque module affiche un verdict (score + signaux détaillés) plutôt qu'un simple oui/non, pour montrer le raisonnement derrière l'analyse.
 
+## Fonctionnalités pour l'animation d'atelier
+
+- **Exemples pré-chargés** — boutons "Exemple" sur les modules Site et E-mail pour lancer une analyse sur un cas préparé sans taper en live devant un groupe.
+- **Mode atelier** — case à cocher dans l'en-tête : le verdict et les signaux sont floutés jusqu'au clic sur « Révéler l'analyse », pour laisser les participants argumenter avant la correction.
+- **Fiche imprimable** — bouton « Imprimer cette fiche » sur les résultats Site et E-mail (formulaires et liens externes masqués à l'impression).
+- **Réinitialiser** — bouton dédié sur chaque module pour enchaîner rapidement les cas.
+- **Fonctionnement 100% hors-ligne** — `exif-js` est vendorisé dans `vendor/exif.js` (plus de dépendance à un CDN), utile en salle sans wifi fiable.
+
 ## Utilisation
 
-Ouvrir `index.html` directement dans un navigateur — aucune installation ni build nécessaire.
+Ouvrir `index.html` directement dans un navigateur — aucune installation ni build nécessaire. Le dossier `vendor/` doit rester à côté de `index.html` (bibliothèque EXIF embarquée).
 
 ## Avertissement
 

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kit de vérification — EMI</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.min.js"></script>
+<script src="vendor/exif.js"></script>
 <style>
   :root{
     --navy:#16223f; --navy-2:#1f2f57;
@@ -27,6 +27,10 @@
   h1{margin:0;font-size:1.8rem;font-weight:600;line-height:1.25;}
   .sub{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#c6cadb;
     font-size:.92rem;margin-top:.55rem;max-width:58ch;}
+
+  .workshop-toggle{display:flex;align-items:center;gap:.5rem;margin-top:1rem;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:.82rem;color:#c6cadb;cursor:pointer;}
+  .workshop-toggle input{cursor:pointer;}
 
   nav.tabs{max-width:760px;margin:0 auto;padding:0 1.5rem;display:flex;gap:.4rem;margin-top:-1px;
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
@@ -57,8 +61,22 @@
     background:var(--navy);color:#fff;
   }
   button.action:hover{background:var(--navy-2);}
+  button.action.secondary{background:transparent;color:var(--navy);border:1.5px solid var(--line);}
+  button.action.secondary:hover{background:var(--paper-2);border-color:var(--navy-2);}
+  button.action.small{padding:.5rem .85rem;font-size:.82rem;}
+  .btn-row{display:flex;gap:.5rem;flex-wrap:wrap;}
   .hint{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:.8rem;
     color:var(--ink-soft);margin-top:.55rem;}
+
+  .examples{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.9rem;}
+  .example-btn{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:.78rem;
+    background:var(--paper-2);border:1px solid var(--line);border-radius:20px;padding:.4rem .85rem;
+    cursor:pointer;color:var(--ink-soft);}
+  .example-btn:hover{background:#fff;border-color:var(--navy-2);color:var(--navy);}
+
+  .reveal-gate{display:none;text-align:center;padding:1.4rem;}
+  .reveal-gate.show{display:block;}
+  .analysis-hidden .verdict, .analysis-hidden ul.signals{filter:blur(7px);pointer-events:none;user-select:none;}
 
   .verdict{display:flex;align-items:center;gap:1rem;padding:1rem 1.2rem;border-radius:2px;margin:1.1rem 0;}
   .verdict.safe{background:var(--green-bg);border-left:5px solid var(--green);}
@@ -101,6 +119,14 @@
   footer{max-width:760px;margin:0 auto;padding:0 1.5rem 2.5rem;
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:.76rem;color:var(--ink-soft);}
   .disclaimer{border-top:1px solid var(--line);padding-top:1rem;margin-top:.5rem;}
+
+  @media print{
+    body{background:#fff;}
+    .no-print{display:none !important;}
+    header{border-bottom-color:#000;}
+    .panel{border:1px solid #999;break-inside:avoid;}
+    .analysis-hidden .verdict, .analysis-hidden ul.signals{filter:none;pointer-events:auto;}
+  }
 </style>
 </head>
 <body>
@@ -110,10 +136,14 @@
     <p class="eyebrow">Éducation aux médias et à l'information</p>
     <h1>Kit de vérification</h1>
     <p class="sub">Trois modules pour apprendre à repérer les signaux d'alerte — sur un site, un e-mail ou une photo. Chaque module montre le raisonnement, pas seulement un verdict.</p>
+    <label class="workshop-toggle">
+      <input type="checkbox" id="workshop-mode">
+      Mode atelier — cacher le verdict jusqu'au clic sur « Révéler »
+    </label>
   </div>
 </header>
 
-<nav class="tabs">
+<nav class="tabs no-print">
   <button class="tab-btn active" data-tab="site">Site</button>
   <button class="tab-btn" data-tab="email">E-mail</button>
   <button class="tab-btn" data-tab="photo">Photo</button>
@@ -123,34 +153,47 @@
 
   <!-- SITE -->
   <section class="section active" id="tab-site">
-    <div class="panel">
+    <div class="panel no-print">
       <label for="url-input">Adresse du site à vérifier</label>
       <div class="input-row">
         <input type="text" id="url-input" placeholder="exemple : jarekulvot.com" autocomplete="off" spellcheck="false">
         <button class="action" id="check-site-btn">Vérifier</button>
+        <button class="action secondary" id="reset-site-btn">Réinitialiser</button>
       </div>
       <p class="hint">Colle l'adresse avec ou sans « https:// ».</p>
+      <div class="examples" id="site-examples">
+        <button class="example-btn" type="button" data-value="impots-remboursement-secure.tk">Exemple : faux service des impôts</button>
+        <button class="example-btn" type="button" data-value="ameli-cpam-mon-remboursement.xyz">Exemple : fausse Ameli</button>
+        <button class="example-btn" type="button" data-value="leparisien-actualite.info">Exemple : faux média</button>
+        <button class="example-btn" type="button" data-value="service-public.fr">Exemple : site légitime</button>
+      </div>
     </div>
 
     <div id="site-result" style="display:none">
-      <div class="panel">
+      <div class="panel" id="site-verdict-panel">
         <div id="site-verdict" class="verdict"></div>
         <ul class="signals" id="site-signals"></ul>
+        <div class="reveal-gate" id="site-reveal-gate">
+          <button class="action" id="site-reveal-btn">🔍 Révéler l'analyse</button>
+        </div>
       </div>
-      <div class="panel">
+      <div class="panel no-print">
         <h2>Vérifier de ton côté</h2>
         <div class="grid2" id="site-tools"></div>
       </div>
-      <div class="panel">
+      <div class="panel no-print">
         <h2>Signaler ce site</h2>
         <div class="grid2" id="site-report"></div>
+      </div>
+      <div class="btn-row no-print">
+        <button class="action small secondary" id="print-site-btn">🖨 Imprimer cette fiche</button>
       </div>
     </div>
   </section>
 
   <!-- EMAIL -->
   <section class="section" id="tab-email">
-    <div class="panel">
+    <div class="panel no-print">
       <p class="note">Colle le texte du mail suspect (objet + corps). Rien n'est envoyé sur un serveur, tout est analysé dans le navigateur.</p>
       <label for="email-input">Contenu du mail</label>
       <textarea id="email-input" placeholder="Colle ici l'objet et le corps du mail…"></textarea>
@@ -158,23 +201,40 @@
         <label style="margin:0;flex:none;align-self:center;">Adresse de l'expéditeur (optionnel)</label>
         <input type="text" id="email-sender" placeholder="exemple : contact@impots-remboursement.fr">
       </div>
-      <button class="action" id="check-email-btn" style="margin-top:1rem;">Analyser</button>
+      <div class="btn-row" style="margin-top:1rem;">
+        <button class="action" id="check-email-btn">Analyser</button>
+        <button class="action secondary" id="reset-email-btn">Réinitialiser</button>
+      </div>
+      <div class="examples" id="email-examples">
+        <button class="example-btn" type="button" data-example="impots">Exemple : faux remboursement d'impôts</button>
+        <button class="example-btn" type="button" data-example="colis">Exemple : faux colis bloqué</button>
+        <button class="example-btn" type="button" data-example="banque">Exemple : fausse alerte bancaire</button>
+      </div>
     </div>
 
     <div id="email-result" style="display:none">
-      <div class="panel">
+      <div class="panel" id="email-verdict-panel">
         <div id="email-verdict" class="verdict"></div>
         <ul class="signals" id="email-signals"></ul>
+        <div class="reveal-gate" id="email-reveal-gate">
+          <button class="action" id="email-reveal-btn">🔍 Révéler l'analyse</button>
+        </div>
+      </div>
+      <div class="btn-row no-print">
+        <button class="action small secondary" id="print-email-btn">🖨 Imprimer cette fiche</button>
       </div>
     </div>
   </section>
 
   <!-- PHOTO -->
   <section class="section" id="tab-photo">
-    <div class="panel">
+    <div class="panel no-print">
       <p class="note">La photo reste sur cet appareil : elle n'est envoyée nulle part. On lit ses métadonnées techniques (si elles existent encore) et on te donne les bons outils pour la recherche d'image inversée, qui doit se faire manuellement.</p>
       <label for="photo-input">Choisir une image</label>
-      <input type="file" id="photo-input" accept="image/*">
+      <div class="input-row">
+        <input type="file" id="photo-input" accept="image/*">
+        <button class="action secondary" id="reset-photo-btn">Réinitialiser</button>
+      </div>
       <img id="img-preview" alt="Aperçu">
     </div>
 
@@ -183,7 +243,7 @@
         <h2>Métadonnées lues</h2>
         <div id="exif-content"></div>
       </div>
-      <div class="panel">
+      <div class="panel no-print">
         <h2>Recherche d'image inversée (manuelle)</h2>
         <p class="note">Ouvre l'outil, puis dépose ou téléverse la même image.</p>
         <div class="grid2">
@@ -227,6 +287,35 @@
       document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
     });
   });
+
+  // ---------- MODE ATELIER (révéler le verdict) ----------
+  function isWorkshopMode(){
+    return document.getElementById('workshop-mode').checked;
+  }
+  // panelId: conteneur qui reçoit .analysis-hidden ; gateId: bloc bouton "révéler"
+  function applyRevealGate(panelId, gateId){
+    const panel = document.getElementById(panelId);
+    const gate = document.getElementById(gateId);
+    if(isWorkshopMode()){
+      panel.classList.add('analysis-hidden');
+      gate.classList.add('show');
+    } else {
+      panel.classList.remove('analysis-hidden');
+      gate.classList.remove('show');
+    }
+  }
+  document.getElementById('site-reveal-btn').addEventListener('click', ()=>{
+    document.getElementById('site-verdict-panel').classList.remove('analysis-hidden');
+    document.getElementById('site-reveal-gate').classList.remove('show');
+  });
+  document.getElementById('email-reveal-btn').addEventListener('click', ()=>{
+    document.getElementById('email-verdict-panel').classList.remove('analysis-hidden');
+    document.getElementById('email-reveal-gate').classList.remove('show');
+  });
+
+  // ---------- IMPRESSION ----------
+  document.getElementById('print-site-btn').addEventListener('click', ()=>window.print());
+  document.getElementById('print-email-btn').addEventListener('click', ()=>window.print());
 
   // ---------- SITE MODULE ----------
   const SUSPICIOUS_TLDS = ['tk','ml','ga','cf','gq','xyz','top','work','click','loan','win','review','icu','buzz'];
@@ -375,12 +464,27 @@
     });
   }
 
-  document.getElementById('check-site-btn').addEventListener('click', ()=>{
-    const raw = document.getElementById('url-input').value;
+  function runSiteCheck(raw){
     if(!raw.trim()) return;
     renderSite(analyzeSite(raw));
+    applyRevealGate('site-verdict-panel', 'site-reveal-gate');
+  }
+  document.getElementById('check-site-btn').addEventListener('click', ()=>{
+    runSiteCheck(document.getElementById('url-input').value);
   });
   document.getElementById('url-input').addEventListener('keydown', e=>{ if(e.key==='Enter'){ document.getElementById('check-site-btn').click(); } });
+
+  document.getElementById('reset-site-btn').addEventListener('click', ()=>{
+    document.getElementById('url-input').value = '';
+    document.getElementById('site-result').style.display = 'none';
+    document.getElementById('url-input').focus();
+  });
+  document.querySelectorAll('#site-examples .example-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.getElementById('url-input').value = btn.dataset.value;
+      runSiteCheck(btn.dataset.value);
+    });
+  });
 
   // ---------- EMAIL MODULE ----------
   const URGENCY_WORDS = ['urgent','immédiatement','sous 24h','sous 48h','dernier délai','compte bloqué','compte suspendu','action requise','dernier rappel','suspension imminente'];
@@ -448,14 +552,55 @@
     });
   }
 
-  document.getElementById('check-email-btn').addEventListener('click', ()=>{
-    const text = document.getElementById('email-input').value;
-    const sender = document.getElementById('email-sender').value;
+  function runEmailCheck(text, sender){
     if(!text.trim()) return;
     renderEmail(analyzeEmail(text, sender));
+    applyRevealGate('email-verdict-panel', 'email-reveal-gate');
+  }
+  document.getElementById('check-email-btn').addEventListener('click', ()=>{
+    runEmailCheck(document.getElementById('email-input').value, document.getElementById('email-sender').value);
+  });
+
+  document.getElementById('reset-email-btn').addEventListener('click', ()=>{
+    document.getElementById('email-input').value = '';
+    document.getElementById('email-sender').value = '';
+    document.getElementById('email-result').style.display = 'none';
+    document.getElementById('email-input').focus();
+  });
+
+  const EMAIL_EXAMPLES = {
+    impots: {
+      sender: 'contact@impots-remboursement-secure.tk',
+      text: "Objet : Remboursement en attente — action requise sous 48h\n\nMadame, Monsieur,\n\nVotre dossier fiscal fait apparaître un remboursement de 247,80€. Suite à une erreur de traitement, votre compte a été suspendu. Pour débloquer le virement, cliquez ici et renseignez vos coordonnées bancaires et votre code de vérification sous 48h, faute de quoi la demande sera annulée.\n\nCordialement,\nLe service des impôts"
+    },
+    colis: {
+      sender: 'notifications@colis-tracking-fr.xyz',
+      text: "Objet : Votre colis est bloqué en douane\n\nBonjour,\n\nVotre colis n'a pas pu être livré : des frais de douane de 1,99€ restent à régler. Cliquez ici sous 24h pour éviter le retour à l'expéditeur. Merci de renseigner votre numéro de carte pour finaliser le paiement.\n\nL'équipe logistique"
+    },
+    banque: {
+      sender: 'securite@ma-banque-alertes.info',
+      text: "Objet : Compte bloqué — dernier rappel\n\nCher client,\n\nNous avons détecté une activité suspecte sur votre compte. Votre compte sera définitivement bloqué si vous ne confirmez pas votre identité immédiatement. Cliquez ici et saisissez votre identifiant et mot de passe ainsi que le code confidentiel envoyé par SMS.\n\nLe service sécurité"
+    }
+  };
+  document.querySelectorAll('#email-examples .example-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const ex = EMAIL_EXAMPLES[btn.dataset.example];
+      if(!ex) return;
+      document.getElementById('email-input').value = ex.text;
+      document.getElementById('email-sender').value = ex.sender;
+      runEmailCheck(ex.text, ex.sender);
+    });
   });
 
   // ---------- PHOTO MODULE ----------
+  document.getElementById('reset-photo-btn').addEventListener('click', ()=>{
+    const input = document.getElementById('photo-input');
+    input.value = '';
+    document.getElementById('img-preview').style.display = 'none';
+    document.getElementById('img-preview').removeAttribute('src');
+    document.getElementById('photo-result').style.display = 'none';
+  });
+
   document.getElementById('photo-input').addEventListener('change', function(e){
     const file = e.target.files[0];
     if(!file) return;
