@@ -363,6 +363,11 @@
 
 <script>
 (function(){
+  // ---------- Échappement HTML (les signaux peuvent contenir du texte saisi par l'utilisateur, ex. l'expéditeur) ----------
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  }
+
   // ---------- Tabs ----------
   document.querySelectorAll('.tab-btn').forEach(btn=>{
     btn.addEventListener('click', ()=>{
@@ -528,7 +533,7 @@
 
     result.signals.forEach(s=>{
       const li=document.createElement('li'); li.className=s.type;
-      li.innerHTML = '<span class="flag">'+(s.type==='bad'?'✕':s.type==='warn'?'!':'✓')+'</span><span>'+s.text+'</span>';
+      li.innerHTML = '<span class="flag">'+(s.type==='bad'?'✕':s.type==='warn'?'!':'✓')+'</span><span>'+escapeHtml(s.text)+'</span>';
       signalsEl.appendChild(li);
     });
 
@@ -706,7 +711,7 @@
 
     result.signals.forEach(s=>{
       const li=document.createElement('li'); li.className=s.type;
-      li.innerHTML = '<span class="flag">'+(s.type==='bad'?'✕':s.type==='warn'?'!':'✓')+'</span><span>'+s.text+'</span>';
+      li.innerHTML = '<span class="flag">'+(s.type==='bad'?'✕':s.type==='warn'?'!':'✓')+'</span><span>'+escapeHtml(s.text)+'</span>';
       signalsEl.appendChild(li);
     });
   }
@@ -845,7 +850,7 @@
 
     result.signals.forEach(s=>{
       const li=document.createElement('li'); li.className=s.type;
-      li.innerHTML = '<span class="flag">'+(s.type==='bad'?'✕':s.type==='warn'?'!':'✓')+'</span><span>'+s.text+'</span>';
+      li.innerHTML = '<span class="flag">'+(s.type==='bad'?'✕':s.type==='warn'?'!':'✓')+'</span><span>'+escapeHtml(s.text)+'</span>';
       signalsEl.appendChild(li);
     });
   }
