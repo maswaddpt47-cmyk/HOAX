@@ -146,6 +146,7 @@
 <nav class="tabs no-print">
   <button class="tab-btn active" data-tab="site">Site</button>
   <button class="tab-btn" data-tab="email">E-mail</button>
+  <button class="tab-btn" data-tab="sms">SMS</button>
   <button class="tab-btn" data-tab="photo">Photo</button>
 </nav>
 
@@ -222,6 +223,41 @@
       </div>
       <div class="btn-row no-print">
         <button class="action small secondary" id="print-email-btn">🖨 Imprimer cette fiche</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- SMS -->
+  <section class="section" id="tab-sms">
+    <div class="panel no-print">
+      <p class="note">Colle le texte du SMS suspect. Rien n'est envoyé sur un serveur, tout est analysé dans le navigateur.</p>
+      <label for="sms-input">Contenu du SMS</label>
+      <textarea id="sms-input" placeholder="Colle ici le texte du SMS…"></textarea>
+      <div class="input-row" style="margin-top:.8rem;">
+        <label style="margin:0;flex:none;align-self:center;">Expéditeur (optionnel)</label>
+        <input type="text" id="sms-sender" placeholder="exemple : 06 12 34 56 78 ou « COLISSIMO »">
+      </div>
+      <div class="btn-row" style="margin-top:1rem;">
+        <button class="action" id="check-sms-btn">Analyser</button>
+        <button class="action secondary" id="reset-sms-btn">Réinitialiser</button>
+      </div>
+      <div class="examples" id="sms-examples">
+        <button class="example-btn" type="button" data-example="colis">Exemple : faux colis en attente</button>
+        <button class="example-btn" type="button" data-example="cpf">Exemple : faux CPF/formation</button>
+        <button class="example-btn" type="button" data-example="banque">Exemple : fausse alerte bancaire</button>
+      </div>
+    </div>
+
+    <div id="sms-result" style="display:none">
+      <div class="panel" id="sms-verdict-panel">
+        <div id="sms-verdict" class="verdict"></div>
+        <ul class="signals" id="sms-signals"></ul>
+        <div class="reveal-gate" id="sms-reveal-gate">
+          <button class="action" id="sms-reveal-btn">🔍 Révéler l'analyse</button>
+        </div>
+      </div>
+      <div class="btn-row no-print">
+        <button class="action small secondary" id="print-sms-btn">🖨 Imprimer cette fiche</button>
       </div>
     </div>
   </section>
@@ -316,10 +352,15 @@
     document.getElementById('email-verdict-panel').classList.remove('analysis-hidden');
     document.getElementById('email-reveal-gate').classList.remove('show');
   });
+  document.getElementById('sms-reveal-btn').addEventListener('click', ()=>{
+    document.getElementById('sms-verdict-panel').classList.remove('analysis-hidden');
+    document.getElementById('sms-reveal-gate').classList.remove('show');
+  });
 
   // ---------- IMPRESSION ----------
   document.getElementById('print-site-btn').addEventListener('click', ()=>window.print());
   document.getElementById('print-email-btn').addEventListener('click', ()=>window.print());
+  document.getElementById('print-sms-btn').addEventListener('click', ()=>window.print());
 
   // ---------- SITE MODULE ----------
   const SUSPICIOUS_TLDS = ['tk','ml','ga','cf','gq','xyz','top','work','click','loan','win','review','icu','buzz'];
@@ -460,7 +501,7 @@
       {name:'Cybermalveillance.gouv.fr', desc:'Assistance et signalement officiels.', url:'https://www.cybermalveillance.gouv.fr/'},
       {name:'Pharos', desc:'Plateforme officielle de signalement.', url:'https://www.internet-signalement.gouv.fr/'},
       {name:'Phishing Initiative', desc:'Signalement dédié au phishing.', url:'https://phishing-initiative.fr/'},
-      {name:'Signal Arnaques', desc:'Base collaborative d\'arnaques signalées.', url:'https://www.signal-arnaques.com/report?url='+encodeURIComponent(host)}
+      {name:'Signal Arnaques', desc:'Base collaborative d\'arnaques signalées.', url:'https://www.signal-arnaques.com/scam/add'}
     ].forEach(s=>{
       const a=document.createElement('a'); a.className='ext-link'; a.href=s.url; a.target='_blank'; a.rel='noopener noreferrer';
       a.innerHTML='<div class="name">'+s.name+'</div><div class="desc">'+s.desc+'</div>';
@@ -593,6 +634,128 @@
       document.getElementById('email-input').value = ex.text;
       document.getElementById('email-sender').value = ex.sender;
       runEmailCheck(ex.text, ex.sender);
+    });
+  });
+
+  // ---------- SMS MODULE ----------
+  const SMS_BRANDS = ['colissimo','chronopost','la poste','laposte','dhl','ups','fedex','ameli','caf','impots','edf','free mobile','orange','sfr','bouygues','cpf','pole emploi','france travail','paypal'];
+  const PREMIUM_NUMBER_RE = /0[89]\d{8}/;
+  const REPLY_TRAP_RE = /r[ée]pond(ez|s|re)\s+(oui|1|stop\s+non)/i;
+  const MOBILE_NUMBER_RE = /^(\+33|0)[67]\d{8}$/;
+
+  function extractLink(text){
+    const m = text.match(/https?:\/\/[^\s]+/i) || text.match(/(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s]*)?/i);
+    return m ? m[0] : null;
+  }
+
+  function analyzeSms(text, sender){
+    const lower = text.toLowerCase();
+    const compact = text.replace(/[\s.\-]/g,'');
+    const signals = [];
+    let score = 0;
+
+    URGENCY_WORDS.forEach(w=>{ if(lower.includes(w)){ signals.push({type:'warn', text:"Formulation d'urgence détectée : « "+w+" » — technique classique pour pousser à agir vite sans réfléchir."}); score+=2; } });
+    SENSITIVE_ASK.forEach(w=>{ if(lower.includes(w)){ signals.push({type:'bad', text:"Demande d'information sensible : « "+w+" » — un organisme légitime ne le demande jamais par SMS."}); score+=4; } });
+
+    const link = extractLink(text);
+    if(link){
+      const linkLower = link.toLowerCase();
+      if(SHORTENERS.some(s=>linkLower.includes(s))){
+        signals.push({type:'warn', text:"Lien raccourci dans le message — la destination réelle est masquée."});
+        score += 2;
+      }
+      const tldMatch = linkLower.match(/\.([a-z]{2,})(?:\/|$)/);
+      if(tldMatch && SUSPICIOUS_TLDS.includes(tldMatch[1])){
+        signals.push({type:'bad', text:"Le lien pointe vers une extension (." + tldMatch[1] + ") fréquemment associée à des sites frauduleux."});
+        score += 3;
+      }
+    }
+
+    if(PREMIUM_NUMBER_RE.test(compact)){
+      signals.push({type:'bad', text:"Numéro surtaxé (08/09) détecté dans le message — technique classique pour facturer l'appel de rappel."});
+      score += 4;
+    }
+    if(REPLY_TRAP_RE.test(text)){
+      signals.push({type:'bad', text:"Le message demande de répondre « OUI »/« 1 » par SMS — piège fréquent pour confirmer un abonnement surtaxé ou valider l'existence du numéro."});
+      score += 3;
+    }
+
+    if(sender && sender.trim()){
+      const senderCompact = sender.trim().replace(/[\s.\-]/g,'');
+      const looksLikeMobile = MOBILE_NUMBER_RE.test(senderCompact);
+      const mentionedBrand = SMS_BRANDS.find(b=>lower.includes(b));
+      if(mentionedBrand && looksLikeMobile){
+        signals.push({type:'bad', text:"Le SMS se présente comme venant de « "+mentionedBrand+" » mais a été envoyé depuis un numéro de mobile standard ("+sender.trim()+"), pas un expéditeur officiel."});
+        score += 5;
+      }
+    } else {
+      signals.push({type:'warn', text:"Numéro ou nom d'expéditeur non renseigné — regarde s'il s'agit d'un numéro classique (06/07) plutôt que du nom de l'organisme, souvent le signal le plus fiable."});
+    }
+
+    if(score===0){
+      signals.push({type:'ok', text:"Aucun signal classique de smishing (hameçonnage par SMS) détecté dans le texte fourni."});
+    }
+    return { score, signals };
+  }
+
+  function renderSms(result){
+    const box = document.getElementById('sms-result');
+    const verdictBox = document.getElementById('sms-verdict');
+    const signalsEl = document.getElementById('sms-signals');
+    box.style.display='block'; signalsEl.innerHTML='';
+
+    let level,label,desc;
+    if(result.score>=5){ level='danger'; label="Signaux d'alerte élevés"; desc="Ce SMS présente plusieurs caractéristiques classiques du smishing."; }
+    else if(result.score>=2){ level='amber'; label='Prudence recommandée'; desc="Quelques éléments à vérifier avant d'agir sur ce SMS."; }
+    else { level='safe'; label='Peu de signaux détectés'; desc="L'analyse de texte ne garantit rien : vérifie toujours le numéro réel."; }
+
+    verdictBox.className='verdict '+level;
+    verdictBox.innerHTML = '<div class="verdict-score">'+result.score+'</div><div class="verdict-text"><div class="label">'+label+'</div><div class="desc">'+desc+'</div></div>';
+
+    result.signals.forEach(s=>{
+      const li=document.createElement('li'); li.className=s.type;
+      li.innerHTML = '<span class="flag">'+(s.type==='bad'?'✕':s.type==='warn'?'!':'✓')+'</span><span>'+s.text+'</span>';
+      signalsEl.appendChild(li);
+    });
+  }
+
+  function runSmsCheck(text, sender){
+    if(!text.trim()) return;
+    renderSms(analyzeSms(text, sender));
+    applyRevealGate('sms-verdict-panel', 'sms-reveal-gate');
+  }
+  document.getElementById('check-sms-btn').addEventListener('click', ()=>{
+    runSmsCheck(document.getElementById('sms-input').value, document.getElementById('sms-sender').value);
+  });
+
+  document.getElementById('reset-sms-btn').addEventListener('click', ()=>{
+    document.getElementById('sms-input').value = '';
+    document.getElementById('sms-sender').value = '';
+    document.getElementById('sms-result').style.display = 'none';
+    document.getElementById('sms-input').focus();
+  });
+
+  const SMS_EXAMPLES = {
+    colis: {
+      sender: '+33 6 12 45 78 90',
+      text: "Colissimo: Votre colis est en attente de livraison. Réglez 1,99€ de frais de dédouanement ici : http://colissimo-fr.suivi-colis.top/paiement Sans quoi le colis sera retourné sous 24h."
+    },
+    cpf: {
+      sender: '07 45 12 33 89',
+      text: "Vous disposez de 500€ sur votre compte CPF qui expirent ce mois-ci. Cliquez vite : bit.ly/cpf-formation2024 pour ne pas les perdre."
+    },
+    banque: {
+      sender: '06 98 12 34 56',
+      text: "Alerte : une connexion inhabituelle a été détectée sur votre compte. Confirmez votre identité immédiatement en répondant OUI, ou en composant le 0899 12 34 56, sinon votre carte sera bloquée."
+    }
+  };
+  document.querySelectorAll('#sms-examples .example-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const ex = SMS_EXAMPLES[btn.dataset.example];
+      if(!ex) return;
+      document.getElementById('sms-input').value = ex.text;
+      document.getElementById('sms-sender').value = ex.sender;
+      runSmsCheck(ex.text, ex.sender);
     });
   });
 
