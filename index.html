@@ -235,6 +235,10 @@
         <input type="file" id="photo-input" accept="image/*">
         <button class="action secondary" id="reset-photo-btn">Réinitialiser</button>
       </div>
+      <div class="examples" id="photo-examples">
+        <button class="example-btn" type="button" data-example="assets/example-with-exif.jpg">Exemple : photo avec métadonnées</button>
+        <button class="example-btn" type="button" data-example="assets/example-without-exif.jpg">Exemple : photo sans métadonnées</button>
+      </div>
       <img id="img-preview" alt="Aperçu">
     </div>
 
@@ -601,8 +605,7 @@
     document.getElementById('photo-result').style.display = 'none';
   });
 
-  document.getElementById('photo-input').addEventListener('change', function(e){
-    const file = e.target.files[0];
+  function processPhotoFile(file){
     if(!file) return;
     const preview = document.getElementById('img-preview');
     const resultBox = document.getElementById('photo-result');
@@ -643,6 +646,27 @@
       html += '</table>';
       html += '<p class="note" style="margin-top:.8rem;">La présence d\'une date et d\'un appareil cohérents avec le contexte annoncé est un bon signe. Une absence totale de métadonnées ne prouve rien (souvent supprimées par la plateforme d\'envoi) — combine toujours avec une recherche d\'image inversée.</p>';
       exifBox.innerHTML = html;
+    });
+  }
+
+  document.getElementById('photo-input').addEventListener('change', function(e){
+    processPhotoFile(e.target.files[0]);
+  });
+
+  document.querySelectorAll('#photo-examples .example-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const url = btn.dataset.example;
+      const exifBox = document.getElementById('exif-content');
+      document.getElementById('photo-result').style.display='block';
+      exifBox.innerHTML = '<p class="note">Chargement de l\'exemple…</p>';
+      try{
+        const resp = await fetch(url);
+        const blob = await resp.blob();
+        document.getElementById('photo-input').value = '';
+        processPhotoFile(blob);
+      } catch(err){
+        exifBox.innerHTML = '<p class="note">Impossible de charger l\'image d\'exemple (' + url + ').</p>';
+      }
     });
   });
 })();

@@ -12,7 +12,7 @@ Chaque module affiche un verdict (score + signaux détaillés) plutôt qu'un sim
 
 ## Fonctionnalités pour l'animation d'atelier
 
-- **Exemples pré-chargés** — boutons "Exemple" sur les modules Site et E-mail pour lancer une analyse sur un cas préparé sans taper en live devant un groupe.
+- **Exemples pré-chargés** — boutons "Exemple" sur les trois modules (Site, E-mail, Photo — dont une image avec métadonnées EXIF et une sans) pour lancer une analyse sur un cas préparé sans taper/téléverser en live devant un groupe.
 - **Mode atelier** — case à cocher dans l'en-tête : le verdict et les signaux sont floutés jusqu'au clic sur « Révéler l'analyse », pour laisser les participants argumenter avant la correction.
 - **Fiche imprimable** — bouton « Imprimer cette fiche » sur les résultats Site et E-mail (formulaires et liens externes masqués à l'impression).
 - **Réinitialiser** — bouton dédié sur chaque module pour enchaîner rapidement les cas.
