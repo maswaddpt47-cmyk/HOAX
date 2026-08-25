@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kit de vérification — EMI</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.min.js"></script>
+<style>
+  :root{
+    --navy:#16223f; --navy-2:#1f2f57;
+    --paper:#f6f3ec; --paper-2:#efe9dc;
+    --gold:#b8863b;
+    --red:#a4302a; --red-bg:#f7e5e2;
+    --green:#2f6b52; --green-bg:#e4efe6;
+    --amber:#a3721c; --amber-bg:#f5ecd8;
+    --ink:#20242c; --ink-soft:#5b5f6a; --line:#d9d2c1;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Georgia,serif;-webkit-font-smoothing:antialiased;}
+  .sans{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+
+  header{background:var(--navy);color:var(--paper);padding:2rem 1.5rem 1.6rem;border-bottom:4px solid var(--gold);}
+  .header-inner{max-width:760px;margin:0 auto;}
+  .eyebrow{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;letter-spacing:.14em;
+    text-transform:uppercase;font-size:.72rem;color:#cdb98a;margin:0 0 .6rem;}
+  h1{margin:0;font-size:1.8rem;font-weight:600;line-height:1.25;}
+  .sub{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#c6cadb;
+    font-size:.92rem;margin-top:.55rem;max-width:58ch;}
+
+  nav.tabs{max-width:760px;margin:0 auto;padding:0 1.5rem;display:flex;gap:.4rem;margin-top:-1px;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
+  .tab-btn{
+    flex:1; padding:.8rem .5rem; background:var(--navy-2); color:#c6cadb; border:none;
+    font-size:.86rem; font-weight:600; cursor:pointer; border-bottom:3px solid transparent;
+  }
+  .tab-btn.active{background:var(--paper);color:var(--navy);border-bottom:3px solid var(--gold);}
+
+  main{max-width:760px;margin:0 auto;padding:1.6rem 1.5rem 3rem;}
+  .panel{background:#fff;border:1px solid var(--line);border-radius:2px;padding:1.5rem;margin-bottom:1.2rem;}
+  .section{display:none;}
+  .section.active{display:block;}
+
+  label{display:block;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    font-size:.78rem;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:.5rem;}
+  .input-row{display:flex;gap:.6rem;flex-wrap:wrap;}
+  input[type=text], textarea, input[type=file]{
+    flex:1;min-width:200px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    font-size:.95rem;padding:.7rem .85rem;border:1.5px solid var(--line);border-radius:2px;
+    background:var(--paper);color:var(--ink);
+  }
+  textarea{width:100%;min-height:130px;resize:vertical;font-family:inherit;}
+  input:focus, textarea:focus{outline:2px solid var(--navy-2);outline-offset:1px;border-color:var(--navy-2);}
+  button.action{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-weight:600;
+    font-size:.9rem;padding:.7rem 1.2rem;border:none;border-radius:2px;cursor:pointer;
+    background:var(--navy);color:#fff;
+  }
+  button.action:hover{background:var(--navy-2);}
+  .hint{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:.8rem;
+    color:var(--ink-soft);margin-top:.55rem;}
+
+  .verdict{display:flex;align-items:center;gap:1rem;padding:1rem 1.2rem;border-radius:2px;margin:1.1rem 0;}
+  .verdict.safe{background:var(--green-bg);border-left:5px solid var(--green);}
+  .verdict.amber{background:var(--amber-bg);border-left:5px solid var(--amber);}
+  .verdict.danger{background:var(--red-bg);border-left:5px solid var(--red);}
+  .verdict-score{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    font-size:1.8rem;font-weight:700;min-width:3rem;text-align:center;}
+  .safe .verdict-score{color:var(--green);} .amber .verdict-score{color:var(--amber);} .danger .verdict-score{color:var(--red);}
+  .verdict-text .label{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    font-weight:700;font-size:1rem;margin-bottom:.15rem;}
+  .verdict-text .desc{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    font-size:.84rem;color:var(--ink-soft);}
+
+  ul.signals{list-style:none;margin:0;padding:0;}
+  ul.signals li{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:.87rem;
+    padding:.5rem 0;border-bottom:1px solid var(--paper-2);display:flex;gap:.6rem;}
+  ul.signals li:last-child{border-bottom:none;}
+  ul.signals .flag{flex-shrink:0;font-weight:700;width:1.2rem;}
+  li.bad .flag{color:var(--red);} li.warn .flag{color:var(--amber);} li.ok .flag{color:var(--green);}
+
+  h2{font-size:1.02rem;margin:0 0 .8rem;color:var(--navy);}
+  p.note{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:.85rem;
+    color:var(--ink-soft);line-height:1.5;margin:0 0 1rem;}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;}
+  @media (max-width:520px){.grid2{grid-template-columns:1fr;}}
+  .ext-link{display:block;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    text-decoration:none;background:var(--paper);border:1px solid var(--line);border-radius:2px;
+    padding:.8rem .95rem;color:var(--ink);}
+  .ext-link:hover{border-color:var(--navy);background:#fff;}
+  .ext-link .name{font-weight:700;font-size:.88rem;color:var(--navy);}
+  .ext-link .desc{font-size:.76rem;color:var(--ink-soft);margin-top:.2rem;}
+
+  table.exif{width:100%;border-collapse:collapse;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:.85rem;}
+  table.exif td{padding:.4rem .3rem;border-bottom:1px solid var(--paper-2);}
+  table.exif td:first-child{color:var(--ink-soft);width:40%;}
+
+  #img-preview{max-width:100%;border:1px solid var(--line);margin-top:.8rem;display:none;}
+
+  footer{max-width:760px;margin:0 auto;padding:0 1.5rem 2.5rem;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:.76rem;color:var(--ink-soft);}
+  .disclaimer{border-top:1px solid var(--line);padding-top:1rem;margin-top:.5rem;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <p class="eyebrow">Éducation aux médias et à l'information</p>
+    <h1>Kit de vérification</h1>
+    <p class="sub">Trois modules pour apprendre à repérer les signaux d'alerte — sur un site, un e-mail ou une photo. Chaque module montre le raisonnement, pas seulement un verdict.</p>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tab-btn active" data-tab="site">Site</button>
+  <button class="tab-btn" data-tab="email">E-mail</button>
+  <button class="tab-btn" data-tab="photo">Photo</button>
+</nav>
+
+<main>
+
+  <!-- SITE -->
+  <section class="section active" id="tab-site">
+    <div class="panel">
+      <label for="url-input">Adresse du site à vérifier</label>
+      <div class="input-row">
+        <input type="text" id="url-input" placeholder="exemple : jarekulvot.com" autocomplete="off" spellcheck="false">
+        <button class="action" id="check-site-btn">Vérifier</button>
+      </div>
+      <p class="hint">Colle l'adresse avec ou sans « https:// ».</p>
+    </div>
+
+    <div id="site-result" style="display:none">
+      <div class="panel">
+        <div id="site-verdict" class="verdict"></div>
+        <ul class="signals" id="site-signals"></ul>
+      </div>
+      <div class="panel">
+        <h2>Vérifier de ton côté</h2>
+        <div class="grid2" id="site-tools"></div>
+      </div>
+      <div class="panel">
+        <h2>Signaler ce site</h2>
+        <div class="grid2" id="site-report"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- EMAIL -->
+  <section class="section" id="tab-email">
+    <div class="panel">
+      <p class="note">Colle le texte du mail suspect (objet + corps). Rien n'est envoyé sur un serveur, tout est analysé dans le navigateur.</p>
+      <label for="email-input">Contenu du mail</label>
+      <textarea id="email-input" placeholder="Colle ici l'objet et le corps du mail…"></textarea>
+      <div class="input-row" style="margin-top:.8rem;">
+        <label style="margin:0;flex:none;align-self:center;">Adresse de l'expéditeur (optionnel)</label>
+        <input type="text" id="email-sender" placeholder="exemple : contact@impots-remboursement.fr">
+      </div>
+      <button class="action" id="check-email-btn" style="margin-top:1rem;">Analyser</button>
+    </div>
+
+    <div id="email-result" style="display:none">
+      <div class="panel">
+        <div id="email-verdict" class="verdict"></div>
+        <ul class="signals" id="email-signals"></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- PHOTO -->
+  <section class="section" id="tab-photo">
+    <div class="panel">
+      <p class="note">La photo reste sur cet appareil : elle n'est envoyée nulle part. On lit ses métadonnées techniques (si elles existent encore) et on te donne les bons outils pour la recherche d'image inversée, qui doit se faire manuellement.</p>
+      <label for="photo-input">Choisir une image</label>
+      <input type="file" id="photo-input" accept="image/*">
+      <img id="img-preview" alt="Aperçu">
+    </div>
+
+    <div id="photo-result" style="display:none">
+      <div class="panel">
+        <h2>Métadonnées lues</h2>
+        <div id="exif-content"></div>
+      </div>
+      <div class="panel">
+        <h2>Recherche d'image inversée (manuelle)</h2>
+        <p class="note">Ouvre l'outil, puis dépose ou téléverse la même image.</p>
+        <div class="grid2">
+          <a class="ext-link" href="https://images.google.com/" target="_blank" rel="noopener noreferrer">
+            <div class="name">Google Images</div>
+            <div class="desc">Icône appareil photo dans la barre de recherche.</div>
+          </a>
+          <a class="ext-link" href="https://tineye.com/" target="_blank" rel="noopener noreferrer">
+            <div class="name">TinEye</div>
+            <div class="desc">Trouve les usages antérieurs de l'image sur le web.</div>
+          </a>
+          <a class="ext-link" href="https://yandex.com/images/" target="_blank" rel="noopener noreferrer">
+            <div class="name">Yandex Images</div>
+            <div class="desc">Souvent plus efficace pour les visages et lieux.</div>
+          </a>
+          <a class="ext-link" href="https://lens.google.com/" target="_blank" rel="noopener noreferrer">
+            <div class="name">Google Lens</div>
+            <div class="desc">Version mobile, pratique en atelier sur smartphone.</div>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="disclaimer">
+    Ces trois modules donnent des indices, pas des certitudes. En cas de doute sérieux — surtout si des données bancaires ou personnelles ont été transmises — contacte l'organisme concerné par un canal connu et signale le contenu aux plateformes officielles.
+  </div>
+</footer>
+
+<script>
+(function(){
+  // ---------- Tabs ----------
+  document.querySelectorAll('.tab-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  // ---------- SITE MODULE ----------
+  const SUSPICIOUS_TLDS = ['tk','ml','ga','cf','gq','xyz','top','work','click','loan','win','review','icu','buzz'];
+  const OFFICIAL_WORDS = ['impots','impot','caf','ameli','cpam','banque','carte-vitale','paypal','free','orange','laposte','franceconnect','service-public','ants','cpf','pole-emploi','francetravail','edf','securite-sociale'];
+  const MEDIA_WORDS = ['leparisien','parisien','lemonde','lefigaro','bfmtv','francetv','francetvinfo','franceinfo','20minutes','ouestfrance','ladepeche','sudouest'];
+  const INVEST_WORDS = ['devenir participant','investir maintenant','placement garanti','gains garantis','trading','crypto','plateforme d\'investissement','revenus passifs','doubler votre argent'];
+  const SHORTENERS = ['bit.ly','tinyurl.com','t.co','goo.gl','is.gd','cutt.ly','shorturl.at'];
+
+  function normalize(raw){
+    let v = raw.trim();
+    if(!v) return null;
+    if(!/^https?:\/\//i.test(v)) v = 'http://' + v;
+    try{ return new URL(v); } catch(e){ return null; }
+  }
+  function isIP(host){
+    return /^(\d{1,3}\.){3}\d{1,3}$/.test(host);
+  }
+
+  function analyzeSite(rawInput){
+    const hadHttps = /^https:\/\//i.test(rawInput.trim());
+    const url = normalize(rawInput);
+    if(!url) return { valid:false };
+    const host = url.hostname.toLowerCase();
+    const fullLower = rawInput.toLowerCase();
+    const parts = host.split('.');
+    const tld = parts[parts.length-1];
+    const signals = [];
+    let score = 0;
+
+    if(!hadHttps){
+      signals.push({type:'warn', text:"Pas de HTTPS précisé — vérifie le cadenas dans le navigateur avant de saisir des identifiants."});
+      score += 1;
+    } else {
+      signals.push({type:'ok', text:"Adresse en HTTPS."});
+    }
+
+    if(isIP(host)){
+      signals.push({type:'bad', text:"Adresse IP à la place d'un nom de domaine — très inhabituel pour un site légitime."});
+      score += 4;
+    }
+    if(rawInput.includes('@')){
+      signals.push({type:'bad', text:"Le caractère « @ » peut masquer la vraie destination du lien."});
+      score += 4;
+    }
+    if(host.includes('xn--')){
+      signals.push({type:'bad', text:"Domaine encodé (xn--), souvent utilisé pour imiter un nom connu."});
+      score += 4;
+    }
+    if(SUSPICIOUS_TLDS.includes(tld)){
+      signals.push({type:'warn', text:"Extension (." + tld + ") fréquemment associée à des sites frauduleux."});
+      score += 2;
+    }
+    if(parts.length >= 5){
+      signals.push({type:'warn', text:"Beaucoup de sous-domaines — technique pour masquer le vrai domaine."});
+      score += 2;
+    }
+    const hyphens = (host.match(/-/g)||[]).length;
+    if(hyphens >= 3){
+      signals.push({type:'warn', text:"Nom de domaine chargé en tirets — souvent utilisé pour composer un faux nom crédible."});
+      score += 2;
+    }
+
+    const officialLike = /(^|\.)(impots\.gouv\.fr|ameli\.fr|caf\.fr|service-public\.fr|franceconnect\.gouv\.fr|paypal\.com|laposte\.fr|orange\.fr|free\.fr|edf\.fr|pole-emploi\.fr|francetravail\.fr|ants\.gouv\.fr|leparisien\.fr|lemonde\.fr|lefigaro\.fr|bfmtv\.com|francetvinfo\.fr|francetelevisions\.fr|20minutes\.fr|ouest-france\.fr|ladepeche\.fr|sudouest\.fr)$/i;
+    if(OFFICIAL_WORDS.some(w=>host.includes(w)) && !officialLike.test(host)){
+      signals.push({type:'bad', text:"Le nom du site imite un organisme officiel, sans être son vrai domaine."});
+      score += 5;
+    }
+    if(MEDIA_WORDS.some(w=>host.includes(w)) && !officialLike.test(host)){
+      signals.push({type:'bad', text:"Le nom du site imite un média connu, sans être son vrai domaine."});
+      score += 5;
+    }
+
+    // page apparente non vérifiable ici, mais on regarde les paramètres pub
+    const qp = url.search.toLowerCase();
+    const adParams = ['gclid','utm_','gad_source','gad_campaignid','gtag_hash'].filter(p=>qp.includes(p)).length;
+    if(adParams >= 3){
+      signals.push({type:'warn', text:"L'adresse contient de nombreux paramètres publicitaires (gclid/utm) : la page vient d'une pub display, pas d'une recherche directe."});
+      score += 2;
+    }
+    if(INVEST_WORDS.some(w=>fullLower.includes(w))){
+      signals.push({type:'bad', text:"Vocabulaire typique d'une arnaque à l'investissement présent dans l'adresse."});
+      score += 4;
+    }
+    if(SHORTENERS.some(s=>host===s || host.endsWith('.'+s))){
+      signals.push({type:'warn', text:"Lien raccourci — la destination réelle est masquée."});
+      score += 2;
+    }
+    if(host.length > 40){
+      signals.push({type:'warn', text:"Nom de domaine anormalement long."});
+      score += 1;
+    }
+    if(['fr','com','org','net','eu'].includes(tld) && score===0){
+      signals.push({type:'ok', text:"Aucun signal d'alerte détecté dans la structure de l'adresse."});
+    }
+
+    return { valid:true, host, score, signals };
+  }
+
+  function renderSite(result){
+    const box = document.getElementById('site-result');
+    const verdictBox = document.getElementById('site-verdict');
+    const signalsEl = document.getElementById('site-signals');
+    const toolsEl = document.getElementById('site-tools');
+    const reportEl = document.getElementById('site-report');
+    box.style.display='block'; signalsEl.innerHTML=''; toolsEl.innerHTML=''; reportEl.innerHTML='';
+
+    if(!result.valid){
+      verdictBox.className='verdict amber';
+      verdictBox.innerHTML = '<div class="verdict-score">?</div><div class="verdict-text"><div class="label">Adresse illisible</div><div class="desc">Vérifie que l\'adresse est complète.</div></div>';
+      return;
+    }
+
+    let level,label,desc;
+    if(result.score>=5){ level='danger'; label="Signaux d'alerte élevés"; desc="Plusieurs indices typiques d'un site frauduleux. Ne saisis aucune donnée."; }
+    else if(result.score>=2){ level='amber'; label='Prudence recommandée'; desc="Quelques éléments à vérifier avant de faire confiance à ce site."; }
+    else { level='safe'; label='Aucun signal majeur détecté'; desc="Cette analyse ne garantit pas la fiabilité du site — reste vigilant."; }
+
+    verdictBox.className='verdict '+level;
+    verdictBox.innerHTML = '<div class="verdict-score">'+result.score+'</div><div class="verdict-text"><div class="label">'+label+'</div><div class="desc">'+desc+'</div></div>';
+
+    result.signals.forEach(s=>{
+      const li=document.createElement('li'); li.className=s.type;
+      li.innerHTML = '<span class="flag">'+(s.type==='bad'?'✕':s.type==='warn'?'!':'✓')+'</span><span>'+s.text+'</span>';
+      signalsEl.appendChild(li);
+    });
+
+    const host = result.host;
+    [
+      {name:'WHOIS.com', desc:'Date de création, registrar, statut du domaine.', url:'https://www.whois.com/whois/'+encodeURIComponent(host)},
+      {name:'Google (nom du site + avis)', desc:'Voir si d\'autres personnes en parlent.', url:'https://www.google.com/search?q='+encodeURIComponent(host+' avis arnaque')}
+    ].forEach(t=>{
+      const a=document.createElement('a'); a.className='ext-link'; a.href=t.url; a.target='_blank'; a.rel='noopener noreferrer';
+      a.innerHTML='<div class="name">'+t.name+'</div><div class="desc">'+t.desc+'</div>';
+      toolsEl.appendChild(a);
+    });
+
+    [
+      {name:'Cybermalveillance.gouv.fr', desc:'Assistance et signalement officiels.', url:'https://www.cybermalveillance.gouv.fr/'},
+      {name:'Pharos', desc:'Plateforme officielle de signalement.', url:'https://www.internet-signalement.gouv.fr/'},
+      {name:'Phishing Initiative', desc:'Signalement dédié au phishing.', url:'https://phishing-initiative.fr/'},
+      {name:'Signal Arnaques', desc:'Base collaborative d\'arnaques signalées.', url:'https://www.signal-arnaques.com/report?url='+encodeURIComponent(host)}
+    ].forEach(s=>{
+      const a=document.createElement('a'); a.className='ext-link'; a.href=s.url; a.target='_blank'; a.rel='noopener noreferrer';
+      a.innerHTML='<div class="name">'+s.name+'</div><div class="desc">'+s.desc+'</div>';
+      reportEl.appendChild(a);
+    });
+  }
+
+  document.getElementById('check-site-btn').addEventListener('click', ()=>{
+    const raw = document.getElementById('url-input').value;
+    if(!raw.trim()) return;
+    renderSite(analyzeSite(raw));
+  });
+  document.getElementById('url-input').addEventListener('keydown', e=>{ if(e.key==='Enter'){ document.getElementById('check-site-btn').click(); } });
+
+  // ---------- EMAIL MODULE ----------
+  const URGENCY_WORDS = ['urgent','immédiatement','sous 24h','sous 48h','dernier délai','compte bloqué','compte suspendu','action requise','dernier rappel','suspension imminente'];
+  const SENSITIVE_ASK = ['mot de passe','code carte','cvv','rib','numéro de carte','coordonnées bancaires','code confidentiel','identifiant et mot de passe','code de vérification'];
+  const GENERIC_GREETING = ['cher client','cher utilisateur','bonjour client','madame, monsieur,'];
+  const OFFICIAL_DOMAINS_EMAIL = ['impots.gouv.fr','ameli.fr','caf.fr','laposte.fr','service-public.fr','paypal.com','edf.fr','orange.fr','free.fr','francetravail.fr'];
+
+  function analyzeEmail(text, sender){
+    const lower = text.toLowerCase();
+    const signals = [];
+    let score = 0;
+
+    URGENCY_WORDS.forEach(w=>{ if(lower.includes(w)){ signals.push({type:'warn', text:"Formulation d'urgence détectée : « "+w+" » — technique classique pour pousser à agir vite sans réfléchir."}); score+=2; } });
+    SENSITIVE_ASK.forEach(w=>{ if(lower.includes(w)){ signals.push({type:'bad', text:"Demande d'information sensible : « "+w+" » — un organisme légitime ne le demande jamais par mail."}); score+=4; } });
+    GENERIC_GREETING.forEach(w=>{ if(lower.includes(w)){ signals.push({type:'warn', text:"Formule de politesse générique (« "+w+" ») plutôt qu'un vrai nom — signe d'un envoi de masse."}); score+=1; } });
+
+    if(lower.includes('cliquez ici') || lower.includes('cliquer ici')){
+      signals.push({type:'warn', text:"Incitation vague à cliquer (« cliquez ici ») sans préciser la destination réelle."});
+      score += 1;
+    }
+
+    if(sender && sender.trim()){
+      const senderLower = sender.trim().toLowerCase();
+      const domainMatch = senderLower.match(/@([a-z0-9.-]+)$/);
+      const senderDomain = domainMatch ? domainMatch[1] : null;
+      OFFICIAL_DOMAINS_EMAIL.forEach(d=>{
+        const brand = d.split('.')[0];
+        if(lower.includes(brand) && senderDomain && !senderDomain.endsWith(d)){
+          signals.push({type:'bad', text:"Le mail se présente comme venant de « "+brand+" » mais l'adresse d'expéditeur ("+sender.trim()+") ne correspond pas au vrai domaine ("+d+")."});
+          score += 5;
+        }
+      });
+      if(senderDomain && /\d{3,}/.test(senderDomain)){
+        signals.push({type:'warn', text:"Domaine d'expéditeur contenant une longue suite de chiffres — inhabituel pour un organisme."});
+        score += 1;
+      }
+    } else {
+      signals.push({type:'warn', text:"Adresse d'expéditeur non renseignée — c'est souvent le signal le plus fiable, pense à la vérifier."});
+    }
+
+    if(score===0){
+      signals.push({type:'ok', text:"Aucun signal classique de phishing détecté dans le texte fourni."});
+    }
+    return { score, signals };
+  }
+
+  function renderEmail(result){
+    const box = document.getElementById('email-result');
+    const verdictBox = document.getElementById('email-verdict');
+    const signalsEl = document.getElementById('email-signals');
+    box.style.display='block'; signalsEl.innerHTML='';
+
+    let level,label,desc;
+    if(result.score>=5){ level='danger'; label="Signaux d'alerte élevés"; desc="Ce mail présente plusieurs caractéristiques classiques du phishing."; }
+    else if(result.score>=2){ level='amber'; label='Prudence recommandée'; desc="Quelques éléments à vérifier avant d'agir sur ce mail."; }
+    else { level='safe'; label='Peu de signaux détectés'; desc="L'analyse de texte ne garantit rien : vérifie toujours l'expéditeur réel."; }
+
+    verdictBox.className='verdict '+level;
+    verdictBox.innerHTML = '<div class="verdict-score">'+result.score+'</div><div class="verdict-text"><div class="label">'+label+'</div><div class="desc">'+desc+'</div></div>';
+
+    result.signals.forEach(s=>{
+      const li=document.createElement('li'); li.className=s.type;
+      li.innerHTML = '<span class="flag">'+(s.type==='bad'?'✕':s.type==='warn'?'!':'✓')+'</span><span>'+s.text+'</span>';
+      signalsEl.appendChild(li);
+    });
+  }
+
+  document.getElementById('check-email-btn').addEventListener('click', ()=>{
+    const text = document.getElementById('email-input').value;
+    const sender = document.getElementById('email-sender').value;
+    if(!text.trim()) return;
+    renderEmail(analyzeEmail(text, sender));
+  });
+
+  // ---------- PHOTO MODULE ----------
+  document.getElementById('photo-input').addEventListener('change', function(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const preview = document.getElementById('img-preview');
+    const resultBox = document.getElementById('photo-result');
+    const exifBox = document.getElementById('exif-content');
+    const reader = new FileReader();
+    reader.onload = function(ev){
+      preview.src = ev.target.result;
+      preview.style.display='block';
+    };
+    reader.readAsDataURL(file);
+
+    resultBox.style.display='block';
+    exifBox.innerHTML = '<p class="note">Lecture en cours…</p>';
+
+    EXIF.getData(file, function(){
+      const tags = EXIF.getAllTags(this);
+      const keys = Object.keys(tags);
+      if(keys.length === 0){
+        exifBox.innerHTML = '<p class="note">Aucune métadonnée trouvée. C\'est très courant : la plupart des réseaux sociaux et messageries suppriment automatiquement les métadonnées à l\'envoi. L\'absence de métadonnées n\'est donc pas un signal en soi.</p>';
+        return;
+      }
+      const rows = [];
+      const dt = tags.DateTimeOriginal || tags.DateTime;
+      if(dt) rows.push(['Date de prise de vue', dt]);
+      const make = tags.Make, model = tags.Model;
+      if(make || model) rows.push(['Appareil', [make,model].filter(Boolean).join(' ')]);
+      if(tags.GPSLatitude && tags.GPSLongitude){
+        const lat = EXIF.getTag(this,'GPSLatitude'), lon = EXIF.getTag(this,'GPSLongitude');
+        rows.push(['Localisation GPS', 'Présente (voir usage sur le géotag ci-dessous)']);
+      }
+      if(tags.Software) rows.push(['Logiciel de traitement', tags.Software]);
+      if(rows.length===0){
+        exifBox.innerHTML = '<p class="note">Métadonnées présentes mais peu exploitables (pas de date, appareil ou GPS lisible).</p>';
+        return;
+      }
+      let html = '<table class="exif">';
+      rows.forEach(r=>{ html += '<tr><td>'+r[0]+'</td><td>'+r[1]+'</td></tr>'; });
+      html += '</table>';
+      html += '<p class="note" style="margin-top:.8rem;">La présence d\'une date et d\'un appareil cohérents avec le contexte annoncé est un bon signe. Une absence totale de métadonnées ne prouve rien (souvent supprimées par la plateforme d\'envoi) — combine toujours avec une recherche d\'image inversée.</p>';
+      exifBox.innerHTML = html;
+    });
+  });
+})();
+</script>
+
+</body>
+</html>
