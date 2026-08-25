@@ -368,6 +368,18 @@
     return String(str).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   }
 
+  // Vrai mot dans un texte en langage naturel (évite ex. « rib » qui matcherait « attribution », « distribution »…)
+  function includesWord(text, word){
+    const esc = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp("(^|[^a-zà-öø-ÿ0-9])" + esc + "($|[^a-zà-öø-ÿ0-9])", 'i').test(text);
+  }
+
+  // Vrai token dans un nom de domaine, délimité par « . » ou « - » (évite ex. « free » qui matcherait « freelance »)
+  function hostHasToken(host, token){
+    const esc = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp("(^|[.-])" + esc + "($|[.-])", 'i').test(host);
+  }
+
   // ---------- Tabs ----------
   document.querySelectorAll('.tab-btn').forEach(btn=>{
     btn.addEventListener('click', ()=>{
@@ -474,11 +486,11 @@
     }
 
     const officialLike = /(^|\.)(impots\.gouv\.fr|ameli\.fr|caf\.fr|service-public\.fr|franceconnect\.gouv\.fr|paypal\.com|laposte\.fr|orange\.fr|free\.fr|edf\.fr|pole-emploi\.fr|francetravail\.fr|ants\.gouv\.fr|leparisien\.fr|lemonde\.fr|lefigaro\.fr|bfmtv\.com|francetvinfo\.fr|francetelevisions\.fr|20minutes\.fr|ouest-france\.fr|ladepeche\.fr|sudouest\.fr)$/i;
-    if(OFFICIAL_WORDS.some(w=>host.includes(w)) && !officialLike.test(host)){
+    if(OFFICIAL_WORDS.some(w=>hostHasToken(host, w)) && !officialLike.test(host)){
       signals.push({type:'bad', text:"Le nom du site imite un organisme officiel, sans être son vrai domaine."});
       score += 5;
     }
-    if(MEDIA_WORDS.some(w=>host.includes(w)) && !officialLike.test(host)){
+    if(MEDIA_WORDS.some(w=>hostHasToken(host, w)) && !officialLike.test(host)){
       signals.push({type:'bad', text:"Le nom du site imite un média connu, sans être son vrai domaine."});
       score += 5;
     }
@@ -629,12 +641,12 @@
     const signals = [];
     let score = 0;
 
-    const urgencyMatches = URGENCY_WORDS.filter(w=>lower.includes(w));
+    const urgencyMatches = URGENCY_WORDS.filter(w=>includesWord(lower, w));
     if(urgencyMatches.length>0){
       signals.push({type:'warn', text:"Formulation(s) d'urgence détectée(s) (" + urgencyMatches.join(', ') + ") — technique classique pour pousser à agir vite sans réfléchir."});
       score += 2;
     }
-    const sensitiveMatches = SENSITIVE_ASK.filter(w=>lower.includes(w));
+    const sensitiveMatches = SENSITIVE_ASK.filter(w=>includesWord(lower, w));
     if(sensitiveMatches.length>0){
       signals.push({type:'bad', text:"Demande d'information sensible (" + sensitiveMatches.join(', ') + ") — un organisme légitime ne le demande jamais par mail."});
       score += 4;
@@ -762,7 +774,7 @@
 
   // ---------- SMS MODULE ----------
   const SMS_BRANDS = ['colissimo','chronopost','la poste','laposte','dhl','ups','fedex','ameli','caf','impots','edf','free mobile','orange','sfr','bouygues','cpf','pole emploi','france travail','paypal'];
-  const PREMIUM_NUMBER_RE = /0[89]\d{8}/;
+  const PREMIUM_NUMBER_RE = /(?<!\d)0[89]\d{8}(?!\d)/;
   const REPLY_TRAP_RE = /r[ée]pond(ez|s|re|ant)\s+(oui|1|stop\s+non)/i;
   const MOBILE_NUMBER_RE = /^(\+33|0)[67]\d{8}$/;
 
@@ -777,12 +789,12 @@
     const signals = [];
     let score = 0;
 
-    const urgencyMatches = URGENCY_WORDS.filter(w=>lower.includes(w));
+    const urgencyMatches = URGENCY_WORDS.filter(w=>includesWord(lower, w));
     if(urgencyMatches.length>0){
       signals.push({type:'warn', text:"Formulation(s) d'urgence détectée(s) (" + urgencyMatches.join(', ') + ") — technique classique pour pousser à agir vite sans réfléchir."});
       score += 2;
     }
-    const sensitiveMatches = SENSITIVE_ASK.filter(w=>lower.includes(w));
+    const sensitiveMatches = SENSITIVE_ASK.filter(w=>includesWord(lower, w));
     if(sensitiveMatches.length>0){
       signals.push({type:'bad', text:"Demande d'information sensible (" + sensitiveMatches.join(', ') + ") — un organisme légitime ne le demande jamais par SMS."});
       score += 4;
@@ -819,7 +831,7 @@
     if(sender && sender.trim()){
       const senderCompact = sender.trim().replace(/[\s.\-]/g,'');
       const looksLikeMobile = MOBILE_NUMBER_RE.test(senderCompact);
-      const mentionedBrand = SMS_BRANDS.find(b=>lower.includes(b));
+      const mentionedBrand = SMS_BRANDS.find(b=>includesWord(lower, b));
       if(mentionedBrand && looksLikeMobile){
         signals.push({type:'bad', text:"Le SMS se présente comme venant de « "+mentionedBrand+" » mais a été envoyé depuis un numéro de mobile standard ("+sender.trim()+"), pas un expéditeur officiel."});
         score += 5;
