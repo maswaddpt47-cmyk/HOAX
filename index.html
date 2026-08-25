@@ -211,6 +211,7 @@
         <button class="example-btn" type="button" data-example="impots">Exemple : faux remboursement d'impôts</button>
         <button class="example-btn" type="button" data-example="colis">Exemple : faux colis bloqué</button>
         <button class="example-btn" type="button" data-example="banque">Exemple : fausse alerte bancaire</button>
+        <button class="example-btn" type="button" data-example="reno">Exemple : démarchage rénovation énergétique</button>
       </div>
     </div>
 
@@ -580,6 +581,10 @@
   const SENSITIVE_ASK = ['mot de passe','code carte','cvv','rib','numéro de carte','coordonnées bancaires','code confidentiel','identifiant et mot de passe','code de vérification'];
   const GENERIC_GREETING = ['cher client','cher utilisateur','bonjour client','madame, monsieur,'];
   const OFFICIAL_DOMAINS_EMAIL = ['impots.gouv.fr','ameli.fr','caf.fr','laposte.fr','service-public.fr','paypal.com','edf.fr','orange.fr','free.fr','francetravail.fr'];
+  const RENO_CONTEXT_WORDS = ['pompe à chaleur','rénovation énergétique','certificat d\'économie d\'énergie','prime énergie','maprimerénov','isolation à 1€','isolation à un euro'];
+  const ADVANCE_FEE_WORDS = ['avance de frais','avancer les frais','aucun coût supplémentaire','sans aucun coût','reste à charge'];
+  const AGREEMENT_REPLY_RE = /bon pour accord/i;
+  const IDENTITY_DOC_WORDS = ['avis d\'imposition','taxe foncière','pièce d\'identité','carte nationale d\'identité','passeport','facture de téléphone'];
 
   function analyzeEmail(text, sender){
     const lower = text.toLowerCase();
@@ -593,6 +598,27 @@
     if(lower.includes('cliquez ici') || lower.includes('cliquer ici')){
       signals.push({type:'warn', text:"Incitation vague à cliquer (« cliquez ici ») sans préciser la destination réelle."});
       score += 1;
+    }
+
+    const mentionsReno = RENO_CONTEXT_WORDS.some(w=>lower.includes(w));
+    ADVANCE_FEE_WORDS.forEach(w=>{
+      if(lower.includes(w)){
+        signals.push({type:'bad', text:"Formulation « "+w+" » — promesse type « avance de frais / aucun reste à charge » très fréquente dans les démarchages abusifs (isolation, pompe à chaleur, rénovation énergétique)."});
+        score += 3;
+      }
+    });
+    if(mentionsReno && !ADVANCE_FEE_WORDS.some(w=>lower.includes(w))){
+      signals.push({type:'warn', text:"Vocabulaire du secteur de la rénovation énergétique — un secteur particulièrement touché par le démarchage abusif, à vérifier avec attention même sans autre signal."});
+      score += 1;
+    }
+    if(AGREEMENT_REPLY_RE.test(text)){
+      signals.push({type:'bad', text:"Le message demande de répondre avec une formule d'accord pré-rédigée (« bon pour accord ») — technique pour obtenir un semblant de consentement écrit avant tout contrat signé."});
+      score += 3;
+    }
+    const docMatches = IDENTITY_DOC_WORDS.filter(w=>lower.includes(w));
+    if(docMatches.length >= 2){
+      signals.push({type:'bad', text:"Demande groupée de plusieurs documents administratifs (" + docMatches.join(', ') + ") — inhabituel de les réclamer aussi tôt, avant la signature d'un contrat en bonne et due forme."});
+      score += 4;
     }
 
     if(sender && sender.trim()){
@@ -669,6 +695,10 @@
     banque: {
       sender: 'securite@ma-banque-alertes.info',
       text: "Objet : Compte bloqué — dernier rappel\n\nCher client,\n\nNous avons détecté une activité suspecte sur votre compte. Votre compte sera définitivement bloqué si vous ne confirmez pas votre identité immédiatement. Cliquez ici et saisissez votre identifiant et mot de passe ainsi que le code confidentiel envoyé par SMS.\n\nLe service sécurité"
+    },
+    reno: {
+      sender: 'contact@energie-solutions-fr.com',
+      text: "Objet : Votre offre énergétique — Pompe à chaleur\n\nBonjour,\n\nSuite à notre entretien téléphonique, je vous transmets l'offre personnalisée pour votre projet énergétique.\n\nNotre entreprise s'engage à avancer les frais, sans aucun coût supplémentaire pour vous. Dans le cas où un reste à charge subsisterait, celui-ci sera à régler uniquement une fois l'installation réalisée.\n\nPour finaliser votre inscription et sécuriser vos droits, une visite technique à votre domicile est nécessaire.\n\nPour confirmer votre créneau, je vous invite à répondre à cet e-mail avec la mention : « Bon pour accord sous réserve de visite technique »\n\nPour constituer le montage de votre dossier, merci de préparer : avis d'imposition, taxe foncière, pièce d'identité et facture de téléphone.\n\nCordialement"
     }
   };
   document.querySelectorAll('#email-examples .example-btn').forEach(btn=>{
