@@ -601,13 +601,11 @@
     }
 
     const mentionsReno = RENO_CONTEXT_WORDS.some(w=>lower.includes(w));
-    ADVANCE_FEE_WORDS.forEach(w=>{
-      if(lower.includes(w)){
-        signals.push({type:'bad', text:"Formulation « "+w+" » — promesse type « avance de frais / aucun reste à charge » très fréquente dans les démarchages abusifs (isolation, pompe à chaleur, rénovation énergétique)."});
-        score += 3;
-      }
-    });
-    if(mentionsReno && !ADVANCE_FEE_WORDS.some(w=>lower.includes(w))){
+    const feeMatches = ADVANCE_FEE_WORDS.filter(w=>lower.includes(w));
+    if(feeMatches.length > 0){
+      signals.push({type:'bad', text:"Promesse type « avance de frais / aucun reste à charge » (" + feeMatches.join(', ') + ") — très fréquente dans les démarchages abusifs (isolation, pompe à chaleur, rénovation énergétique)."});
+      score += 4;
+    } else if(mentionsReno){
       signals.push({type:'warn', text:"Vocabulaire du secteur de la rénovation énergétique — un secteur particulièrement touché par le démarchage abusif, à vérifier avec attention même sans autre signal."});
       score += 1;
     }
